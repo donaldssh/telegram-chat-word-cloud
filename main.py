@@ -50,6 +50,18 @@ def main(args):
                 top_k = int(0.02 * len(d))
                 for k, v in d.most_common(top_k):
                     del words_dict[k]
+            
+            if args.denylist:
+                with open("denylist.txt") as bl:
+                    denylist = bl.read().splitlines()
+                    print(denylist)
+                    d = Counter(words_dict)
+                    d.most_common()
+                    for k, v in d.items():
+                        if k in denylist:
+                            del words_dict[k]
+
+                
             wordcloud = WordCloud().generate_from_frequencies(words_dict)
             plt.imshow(wordcloud, interpolation="bilinear")
             plt.axis("off")
@@ -76,6 +88,12 @@ if __name__ == "__main__":
         default=False,
         action="store_true",
         help="Typically the top 2% are articles, conjunctions and other non interesting words",
+    )
+    parser.add_argument(
+        "--denylist",
+        default=False,
+        action="store_true",
+        help="Remove the denylist words",
     )
     parser.add_argument(
         "--out",
