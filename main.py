@@ -7,7 +7,7 @@ from collections import Counter
 
 
 def main(args):
-    with open(args.json_path) as f:
+    with open(args.json_path, encoding='utf-8') as f:
         telegram_data = json.load(f)
         if args.total == True:
             chat_list = telegram_data["chats"]["list"]
@@ -16,13 +16,41 @@ def main(args):
         for chat in chat_list:
             try:
                 name = chat["name"]
-                print(name)
+                print('Chat with: \t', name)
             except KeyError:
-                name = None
+                name = None              
+            try:
+                start_date = chat["messages"][0]["date"][:10]
+            except KeyError:
+                start_date = None           
+            try:
+                end_date = chat["messages"][-1]["date"][:10]
+            except KeyError:
+                end_date = None
+              
+            s = 0
+            e = len(chat["messages"])
+            
+            # if range of dates is selected
+            if args.start_date != None:
+                for idx in range(s,e):
+                    if chat["messages"][idx]["date"][:10] == args.start_date:
+                        start_date = args.start_date
+                        s = idx
+                        break
+            print('Start date: \t', start_date)
+                        
+            if args.end_date != None:
+                for idx in range(s,e):
+                    if chat["messages"][idx]["date"][:10] == args.end_date:
+                        end_date = args.end_date
+                        e = idx
+                        break
+            print('End date: \t', end_date)            
 
             words_concat = ""
             links = ""
-            for message in chat["messages"]:
+            for message in chat["messages"][s:e]:
                 if message["type"] == "message" and type(message["text"]) == type(""):
                     words_concat += message["text"]
                     words_concat += " "
@@ -33,39 +61,51 @@ def main(args):
                             links += " "
                         else:
                             words_concat += message_part
-            with open(f"{args.out}/{name}.txt", "w") as of:
+            with open(f"{args.out}\{name}.txt", "w", encoding='utf-8') as of: 
                 of.write(words_concat)
 
             words_dict = dict()
+            
+            #polish
+            if args.polish:
+                words_concat = words_concat.replace("(","")
+                words_concat = words_concat.replace(")","")
+                words_concat = words_concat.replace(".","")
+                words_concat = words_concat.replace(",","")
+                words_concat = words_concat.replace("!","")
+                words_concat = words_concat.replace("?","")
+                words_concat = words_concat.lower()
+            
             words = words_concat.split(" ")
             for word in words:
                 if word in words_dict:
                     words_dict[word] += 1
                 else:
                     words_dict[word] = 1
+            with open(f"{args.out}\{name}_dict.txt", "w", encoding='utf-8') as of: 
+                for item in words_dict:
+                    line = item + ", " + str(words_dict[item])
+                    of.write(line+"\n")
+                    
+            #if find a word
+            if args.find != None:
+                word = args.find
+                if word in words_dict:
+                    print("Occurencies of word '" + word +"': " + str(words_dict[word]))
+                else:
+                    print("No occurrences of word '" + word +"'")
 
             if args.remove_top:
                 d = Counter(words_dict)
                 d.most_common()
-                top_k = int(0.02 * len(d))
+                top_k = int(args.k * len(d))
                 for k, v in d.most_common(top_k):
                     del words_dict[k]
-            
-            if args.denylist:
-                with open("denylist.txt") as bl:
-                    denylist = bl.read().splitlines()
-                    print(denylist)
-                    d = Counter(words_dict)
-                    d.most_common()
-                    for k, v in d.items():
-                        if k in denylist:
-                            del words_dict[k]
-
-                
             wordcloud = WordCloud().generate_from_frequencies(words_dict)
             plt.imshow(wordcloud, interpolation="bilinear")
             plt.axis("off")
             plt.show()
+            
 
 
 if __name__ == "__main__":
@@ -88,12 +128,33 @@ if __name__ == "__main__":
         default=False,
         action="store_true",
         help="Typically the top 2% are articles, conjunctions and other non interesting words",
-    )
+    )    
     parser.add_argument(
-        "--denylist",
+        "--polish",
         default=False,
         action="store_true",
-        help="Remove the denylist words",
+        help="Typically there are a lot of punctuation and upper letters in a conversation.",
+    )
+    parser.add_argument(
+        "--k",
+        default=0.02,
+        type=float,
+        help="Percentage of words to be removed",
+    )
+    parser.add_argument(
+        "--start_date",
+        default=None,
+        help="Start date in format 'yyyy-mm-dd'",
+    )
+    parser.add_argument(
+        "--end_date",
+        default=None,
+        help="End date in format 'yyyy-mm-dd'",
+    )
+    parser.add_argument(
+        "--find",
+        default=None,
+        help="Search occurencies of a word",
     )
     parser.add_argument(
         "--out",
