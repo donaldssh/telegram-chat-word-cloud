@@ -67,7 +67,6 @@ def main(args):
 
             words_dict = dict()
 
-            # polish
             if args.polish:
                 words_concat = words_concat.replace("(", "")
                 words_concat = words_concat.replace(")", "")
@@ -83,6 +82,16 @@ def main(args):
                     words_dict[word] += 1
                 else:
                     words_dict[word] = 1
+
+            with open("denylist.txt") as bl:
+                denylist = bl.read().splitlines()
+                print(denylist)
+                d = Counter(words_dict)
+                d.most_common()
+                for k, v in d.items():
+                    if k in denylist:
+                        del words_dict[k]
+
             with open(f"{os.path.join(args.out, name)}_dict.txt", "w", encoding="utf-8") as of:
                 for item in words_dict:
                     line = item + ", " + str(words_dict[item])
@@ -133,7 +142,13 @@ if __name__ == "__main__":
         "--polish",
         default=False,
         action="store_true",
-        help="Typically there are a lot of punctuation and upper letters in a conversation.",
+        help="Typically there are a lot of punctuation and upper letters in a conversation",
+    )
+    parser.add_argument(
+        "--denylist",
+        default=False,
+        action="store_true",
+        help="Remove strings present in denylist.txt",
     )
     parser.add_argument(
         "--k",
